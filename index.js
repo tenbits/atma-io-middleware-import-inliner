@@ -30,7 +30,7 @@ function u_getIndent(str) {
 exports.u_getIndent = u_getIndent;
 ;
 function u_makeIndent(str, indent, io) {
-    if (!indent)
+    if (!indent || !str)
         return str;
     var newline = u_getNewLine(str, io);
     return str
@@ -275,14 +275,18 @@ var ModuleFile = /** @class */ (function () {
             externalRefs = String_1.String.replace(externalRefs, 0, 3, 'var');
             externalRefs += ';';
         }
+        var indentScopedContent = "" + utils_1.u_makeIndent(scopedContent || '', '    ', this.compiler.io);
+        var indentContent = "" + utils_1.u_makeIndent(content, '    ', this.compiler.io);
         content = [
             "" + outerContent || '',
             "" + externalRefs || '',
-            "(function(){",
-            "" + utils_1.u_makeIndent(scopedContent || '', '    ', this.compiler.io),
-            "" + utils_1.u_makeIndent(content, '    ', this.compiler.io),
-            "}());"
-        ].filter(function (x) { return !!x; }).join(newLine);
+            !this.scopeLess && (indentScopedContent || indentContent) ? "(function(){" : '',
+            indentScopedContent,
+            indentContent,
+            !this.scopeLess && (indentScopedContent || indentContent) ? "}());" : ''
+        ]
+            .filter(function (x) { return !!x; })
+            .join(newLine);
         return utils_1.u_makeIndent(content, indent, this.compiler.io);
     };
     return ModuleFile;
@@ -323,7 +327,7 @@ exports.ExportNode = ExportNode;
 exports.__esModule = true;
 var ModuleFile_1 = _src_modules_ModuleFile;
 var Rgx = {
-    check: /^[ \t]*((import\s+(from|["']))|(export\s+(const|function)))/m,
+    check: /^[ \t]*((import\s+(from|["']))|(export\s+(const|function|\*)))/m,
     Imports: {
         full: {
             rgx: /^[ \t]*import\s*['"]([^'"]+)['"][\t ;]*[\r\n]{0,2}/gm,
@@ -345,6 +349,18 @@ var Rgx = {
                 $import.type = 'refs';
                 $import.path = match[2];
                 $import.refs = match[1].split(',').map(function (x) { return x.trim(); });
+                return $import;
+            }
+        },
+        exportAll: {
+            rgx: /^[ \t]*export\s+\*\s+from\s*['"]([^'"]+)['"][\t ;]*[\r\n]{0,2}/gm,
+            map: function (match) {
+                var $import = new ModuleFile_1.ImportNode();
+                $import.position = match.index;
+                $import.length = match[0].length;
+                $import.type = 'full';
+                $import.path = match[1];
+                $import.exportAll = true;
                 return $import;
             }
         }
@@ -454,6 +470,7 @@ function processModule(localFilePath, content, compiler_) {
     var root = parseFile(localFilePath, content, compiler_);
     flattern(root);
     distinct(root);
+    moveExportAllImprotsToOuter(root);
     return root;
 }
 exports.processModule = processModule;
@@ -481,6 +498,9 @@ function parseFile(localFilePath, content, compiler_) {
             ? new compiler.io.Uri(path)
             : file.uri.combine(path);
         x.module = parseFile(uri.toLocalFile());
+        if (x.scopeLess) {
+            x.module.scopeLess = true;
+        }
     });
     return module;
 }
@@ -537,6 +557,16 @@ function distinct(module, parents) {
     module.scoped.forEach(function (x) { return distinct(x, parents.concat([module])); });
 }
 exports.distinct = distinct;
+function moveExportAllImprotsToOuter(module) {
+    module
+        .imports
+        .filter(function (imp) { return imp.exportAll && module.scoped.has(imp.module); })
+        .forEach(function (imp) {
+        module.outer.add(imp.module);
+        module.scoped.remove(imp.module);
+    });
+    module.scoped.forEach(moveExportAllImprotsToOuter);
+}
 ;
 				
 					function isObject(x) {

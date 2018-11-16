@@ -65,6 +65,17 @@ UTest({
         `;
         Helpers.compareLines(code, expect);
     },
+    'should serialize simple re-export' () {
+        let content = `export * from 'e.js';`;        
+        let code = Helpers.$process(content);
+        let expect = `            
+            var E;
+            (function(){            
+                E = '[e]'        
+            }());               
+        `;
+        Helpers.compareLines(code, expect);
+    },
     'should serialize simple import' () {
         let content = `import 'c.js';`;        
         let code = Helpers.$process(content);

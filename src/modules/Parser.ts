@@ -3,7 +3,7 @@ import { ImportNode, ExportNode, ModuleFile } from './ModuleFile';
 import { File } from '../types/File'
 
 let Rgx = {
-    check: /^[ \t]*((import\s+(from|["']))|(export\s+(const|function)))/m,
+    check: /^[ \t]*((import\s+(from|["']))|(export\s+(const|function|\*)))/m,
     Imports: {
         full: {
             rgx: /^[ \t]*import\s*['"]([^'"]+)['"][\t ;]*[\r\n]{0,2}/gm,
@@ -27,7 +27,19 @@ let Rgx = {
                 $import.refs = match[1].split(',').map(x => x.trim());
                 return $import;
             }
-        },  
+        },
+        exportAll: {
+            rgx: /^[ \t]*export\s+\*\s+from\s*['"]([^'"]+)['"][\t ;]*[\r\n]{0,2}/gm,
+            map (match: RegExpMatchArray) {
+                let $import = new ImportNode();
+                $import.position = match.index;
+                $import.length = match[0].length;
+                $import.type = 'full';
+                $import.path = match[1];                
+                $import.exportAll = true;                
+                return $import;
+            }
+        },
     },
     Exports: {
         const: {

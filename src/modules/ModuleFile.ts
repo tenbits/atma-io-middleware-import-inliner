@@ -13,6 +13,8 @@ export class ModuleFile {
 
     imports: ImportNode[] = []
     exports: ExportNode[] = []
+    scopeLess: boolean
+
     constructor (public content: string, public file: File, public compiler: Compiler) {
         this.id = file.uri.toLocalFile();
         this.path = file.uri.toRelativeString(compiler.io.env.currentDir);
@@ -85,14 +87,19 @@ export class ModuleFile {
             externalRefs += ';';
         }
     
+        let indentScopedContent = `${u_makeIndent(scopedContent || '', '    ', this.compiler.io)}`;
+        let indentContent = `${u_makeIndent(content, '    ', this.compiler.io)}`
+        
         content = [
             `${outerContent}` || '',
             `${externalRefs}` || '',
-            `(function(){`,
-            `${u_makeIndent(scopedContent || '', '    ', this.compiler.io)}`,
-            `${u_makeIndent(content, '    ', this.compiler.io)}`,
-            `}());`
-        ].filter(x => !!x).join(newLine);
+            !this.scopeLess && (indentScopedContent || indentContent) ? `(function(){` : '',
+            indentScopedContent,
+            indentContent,
+            !this.scopeLess && (indentScopedContent || indentContent) ? `}());` : ''
+        ]
+        .filter(x => !!x)
+        .join(newLine);
 
         return u_makeIndent(content, indent, this.compiler.io);
     }
@@ -104,8 +111,9 @@ export class ImportNode {
     path: string
     refs: string[]
     type: 'full' | 'refs'
-
+    scopeLess: boolean
     module: ModuleFile
+    exportAll: boolean;
 }
 export class ExportNode {
     position: number

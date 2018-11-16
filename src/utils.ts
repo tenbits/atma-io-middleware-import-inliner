@@ -7,7 +7,7 @@ export function u_getIndent(str): string {
     return match && match[0] || '';
 };
 export function u_makeIndent(str: string, indent: string, io) {
-    if (!indent) return str;
+    if (!indent || !str) return str;
 
     let newline = u_getNewLine(str, io);
     return str

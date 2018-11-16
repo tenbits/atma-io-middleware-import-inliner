@@ -36,6 +36,7 @@ export function processModule(localFilePath: string, content?: string, compiler_
     let root = parseFile(localFilePath, content, compiler_);
     flattern(root);
     distinct(root);
+    moveExportAllImprotsToOuter(root);
     return root;
 }
 
@@ -46,6 +47,7 @@ export function parseFile (localFilePath: string, content?: string, compiler_?: 
     if (localFilePath in cache) {
         return cache[localFilePath];
     }
+    
     let file = new compiler.io.File(localFilePath);        
     if (content == null) {
         if (file.exists() === false) {
@@ -68,6 +70,9 @@ export function parseFile (localFilePath: string, content?: string, compiler_?: 
             : file.uri.combine(path);
         
         x.module = parseFile(uri.toLocalFile());
+        if (x.scopeLess) {
+            x.module.scopeLess = true
+        }
     });    
     return module;
 }
@@ -124,4 +129,16 @@ export function distinct (module: ModuleFile, parents: ModuleFile[] = []) {
         return false;
     });
     module.scoped.forEach(x => distinct(x, [ ...parents, module]));
+}
+
+function moveExportAllImprotsToOuter(module: ModuleFile) {
+    module
+        .imports
+        .filter(imp => imp.exportAll && module.scoped.has(imp.module))
+        .forEach(imp => {
+            module.outer.add(imp.module);
+            module.scoped.remove(imp.module);
+        });
+
+    module.scoped.forEach(moveExportAllImprotsToOuter);
 }
